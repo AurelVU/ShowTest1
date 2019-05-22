@@ -5,6 +5,7 @@
 #-------------------------------------------------
 
 QT       += core gui
+QT      += testlib
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -30,10 +31,12 @@ include($$PWD/Problem/Problem.pri)
 SOURCES += \
         main.cpp \
         mainwindow.cpp \
+    test_gaussnewton.cpp
 
 
 HEADERS += \
         mainwindow.h \
+    test_gaussnewton.h
 
 FORMS += \
         mainwindow.ui

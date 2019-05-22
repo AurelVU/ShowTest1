@@ -5,6 +5,7 @@
 #include <Eigen/LU>
 #include <QVector>
 #include <QPair>
+#include <QDebug>
 #include <Problem/getterproblem.h>
 
 namespace Eigen {
@@ -14,6 +15,8 @@ using Vector2 = Eigen::Matrix<Scalar, 2, 1>;
 template <typename Scalar, int N>
 using VectorN = Eigen::Matrix<Scalar, N, 1>;
 
+template <typename Scalar, int N>
+using MatrixN = Eigen::Matrix<Scalar, N, N>;
 }
 
 using namespace Eigen;
@@ -40,7 +43,7 @@ public:
         eiges(sourse->getEiges()),
         rubbing(sourse->getRubbing())
     {}
-
+    const int Rasmern = N;
     QVector<VectorN<float, N>> points;
     QVector<VectorN<float, N>> powerPoints;
     QVector<QPair<int, int>> eiges;
@@ -68,10 +71,10 @@ QVector<T> Problem<N>::getResidual(QVector<T> var)
     for (int i = 0; i < powerPoints.size(); i++) // Заполнение массива PowerPoints_local
         powerPointsLocal << powerPoints[i].template cast<T>();
 
-    const int nVertexDimensions = pointsLocal[0].size(); // Размерность пространства
+    const int nVertexDimensions = N; // Размерность пространства
 
     QVector<VectorN<T, N>> pointsChangeable; //Массив изменяемых точек из аргумента функции
-    for (int i = 0; i < var.size() / nVertexDimensions; i++) {
+    for (int i = 0; i < points.size(); i++) {
         VectorN<T, N> a;
         for (int j = 0; j < nVertexDimensions; j++)
             a[j] = var[nVertexDimensions * i + j];
@@ -79,6 +82,18 @@ QVector<T> Problem<N>::getResidual(QVector<T> var)
         pointsChangeable << a;
     }
 
+    //Перегонка в матрицу поворота из var
+    QVector<Matrix<T, N, N>> rotationMatrices;
+    for(int indexMatrix = 0; indexMatrix < points.size(); indexMatrix++) {
+        Matrix<T, N, N> rotationMatrix;
+        for(int row = 0; row < N; row++)
+            for(int column = 0; column < N; column++)
+                rotationMatrix(row, column) =
+                        var[points.size() * N +
+                        indexMatrix * N * N +
+                        row * N + column];
+        rotationMatrices << rotationMatrix;
+    }
     //Добавление невязок с силовыми точками
     for (int i = 0; i < rubbing.size(); i++) {
         const int indexPointFirst = rubbing[i].first;
@@ -91,15 +106,24 @@ QVector<T> Problem<N>::getResidual(QVector<T> var)
     for (int i = 0; i < eiges.size(); i++) {
         const int indexPointFirst = eiges[i].first;
         const int indexPointSecond = eiges[i].second;
+        VectorN<T, N> vectorDiff = pointsChangeable[indexPointSecond] - pointsChangeable[indexPointFirst] -
+                rotationMatrices[indexPointFirst] * (pointsLocal[indexPointSecond] - pointsLocal[indexPointFirst]);
         for (int j = 0; j < nVertexDimensions; j++) {
-            res << pointsChangeable[indexPointSecond][j] - pointsChangeable[indexPointFirst][j] -
-                    (pointsLocal[indexPointSecond][j] - pointsLocal[indexPointFirst][j]);
-           /*   res << pointsChangeable[indexPointFirst][j] - pointsLocal[indexPointSecond][j] -
-                    (pointsLocal[indexPointFirst][j] - pointsLocal[indexPointSecond][j]);
-            res << pointsChangeable[indexPointSecond][j] - pointsLocal[indexPointFirst][j] -
-                    (pointsLocal[indexPointSecond][j] - pointsLocal[indexPointFirst][j]);*/
+            res << vectorDiff[j];
         }
     }
+    for (int vertexIndex = 0; vertexIndex < rotationMatrices.size(); vertexIndex++)
+    {
+        MatrixN<T, N> I;
+        I.setIdentity();
+        MatrixN<T, N> diffMatrix = rotationMatrices[vertexIndex] * rotationMatrices[vertexIndex].transpose() - I;
+        //qDebug() << rotationMatrices[vertexIndex](0, 0) << ' ' << rotationMatrices[vertexIndex](0, 1) << endl
+        //        << rotationMatrices[vertexIndex](1, 0) << ' ' << rotationMatrices[vertexIndex](1, 1);
+        for (int row = 0; row < N; row++)
+            for (int column = 0; column < N; column++)
+                res << diffMatrix(row, column);
+    }
+
     return  res;
 }
 

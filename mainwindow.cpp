@@ -20,10 +20,22 @@ MainWindow::MainWindow(QWidget *parent) :
     for (int i = 0; i < points.size(); i++)
         for (int j = 0; j < 2; j++)
             values << points[i][j];
+    QVector<MatrixN<float, 2>> rotationMatrices;
+    for (int i = 0; i < points.size(); i++)
+    {
+        MatrixN<float, 2> matrix;
+        matrix.setIdentity();
+        rotationMatrices << matrix;
+    }
 
-    values = performGaussNewton(values, problem, 50);
+    for (MatrixN<float, 2> matrix : rotationMatrices)
+        for(int i = 0; i < 2; i++)
+            for (int j = 0; j < 2; j++)
+                values << matrix(i, j);
 
-    for (int i = 0; i < values.size() / 2; i++) {
+    values = performGaussNewton(values, problem, 10000);
+
+    for (int i = 0; i < problem.points.size(); i++) {
         points[i][0] = values[2*i];
         points[i][1] = values[2*i + 1];
     }

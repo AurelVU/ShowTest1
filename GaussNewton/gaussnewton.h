@@ -1,15 +1,17 @@
-#ifndef ERROR_FUNC_H
-#define ERROR_FUNC_H
+#ifndef GAUSS_NEWTON_H
+#define GAUSS_NEWTON_H
 #include <QDebug>
 #include <GaussNewton/variable.h>
 #include <Eigen/Core>
 #include <Eigen/LU>
 #include <Problem/problem.h>
+#include <Eigen/Eigenvalues>
 
 using namespace Eigen;
 
 typedef Variable<Variable<float>> Variable2;
 typedef Variable<float> Variablef;
+
 
 
 template <typename Problem>
@@ -20,6 +22,7 @@ MatrixXf calculeteJr(const QVector<float> &values, Problem &problem)
 
     for (int j = 0; j < values.size(); j++)
         value_v << Variable<float>(values[j]);
+
 
     QVector<Variable<float>> s = problem.template getResidual<Variable<float>>(value_v);
 
@@ -55,8 +58,11 @@ QVector<float> performGaussNewton(const QVector<float> &values, Problem &problem
     auto localValues = values;
     MatrixXf J = calculeteJr(localValues, problem);
     VectorXf V = computeGradientGH(J, localValues, problem);
-
-    MatrixXf H = J.transpose() * J;
+    float dumpingFactor = 0.00001;
+    MatrixXf I(values.size(), values.size());
+    I.setIdentity();
+    MatrixXf H = J.transpose() * J + I * dumpingFactor;
+    VectorXcf ev = H.eigenvalues();
     VectorXf dt = H.partialPivLu().solve(-V);
 
     for (int i = 0; i < countIteration; i++) {
@@ -64,7 +70,7 @@ QVector<float> performGaussNewton(const QVector<float> &values, Problem &problem
             localValues[j] += dt[j];
         J = calculeteJr(localValues, problem);
 
-        MatrixXf H = J.transpose() * J;
+        MatrixXf H = J.transpose() * J + I * dumpingFactor;
 
         V = computeGradientGH(J, localValues, problem);
         dt = H.partialPivLu().solve(-V);
@@ -73,10 +79,4 @@ QVector<float> performGaussNewton(const QVector<float> &values, Problem &problem
 }
 
 
-class error_func
-{
-public:
-    error_func();
-};
-
-#endif // ERROR_FUNC_H
+#endif // GAUSS_NEWTON_H
